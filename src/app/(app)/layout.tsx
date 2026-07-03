@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/rbac";
 import { signOut } from "@/lib/auth";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -27,18 +28,24 @@ export default async function AppLayout({
             Şantiye Satın Alma
           </span>
           <nav className="flex items-center gap-4 text-sm text-zinc-600">
-            <Link href="/panel" className="hover:text-zinc-900">
+            <Link href="/panel" className="transition-colors hover:text-zinc-900 active:text-zinc-950">
               Panel
             </Link>
-            <Link href="/talepler" className="hover:text-zinc-900">
+            <Link href="/talepler" className="transition-colors hover:text-zinc-900 active:text-zinc-950">
               Talepler
             </Link>
             {isAdmin && (
               <>
-                <Link href="/admin/kullanicilar" className="hover:text-zinc-900">
+                <Link
+                  href="/admin/kullanicilar"
+                  className="transition-colors hover:text-zinc-900 active:text-zinc-950"
+                >
                   Kullanıcılar
                 </Link>
-                <Link href="/admin/projeler" className="hover:text-zinc-900">
+                <Link
+                  href="/admin/projeler"
+                  className="transition-colors hover:text-zinc-900 active:text-zinc-950"
+                >
                   Projeler
                 </Link>
               </>
@@ -56,9 +63,12 @@ export default async function AppLayout({
               await signOut({ redirectTo: "/giris" });
             }}
           >
-            <button type="submit" className="text-zinc-500 hover:text-zinc-900">
+            <SubmitButton
+              pendingText="Çıkış yapılıyor..."
+              className="text-zinc-500 hover:text-zinc-900"
+            >
               Çıkış Yap
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </header>

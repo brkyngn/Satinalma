@@ -34,7 +34,7 @@ export default async function ProjelerPage({
         <h1 className="text-lg font-semibold text-zinc-900">Projeler / Şantiyeler</h1>
         <Link
           href="/admin/projeler/yeni"
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.97]"
         >
           Yeni Proje
         </Link>

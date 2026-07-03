@@ -3,6 +3,7 @@ import { requirePageRole } from "@/lib/rbac";
 import { createUserSchema } from "@/lib/validations/admin";
 import { createUser } from "@/lib/services/users";
 import { ROLE_LABELS } from "@/lib/constants";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const ROLE_OPTIONS = Object.keys(ROLE_LABELS) as (keyof typeof ROLE_LABELS)[];
 
@@ -96,12 +97,12 @@ export default async function YeniKullaniciPage({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Kaydediliyor..."
           className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
         >
           Kullanıcı Oluştur
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

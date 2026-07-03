@@ -4,6 +4,7 @@ import { createApprovalSchema } from "@/lib/validations/approval";
 import { decideApproval } from "@/lib/services/approvals";
 import { getPurchaseRequestDetail } from "@/lib/services/requests";
 import { formatMoney } from "@/lib/utils";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function OnayPage({
   params,
@@ -101,22 +102,22 @@ export default async function OnayPage({
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex gap-2">
-          <button
-            type="submit"
+          <SubmitButton
             name="decision"
             value="approved"
+            pendingText="Kaydediliyor..."
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
             Onayla
-          </button>
-          <button
-            type="submit"
+          </SubmitButton>
+          <SubmitButton
             name="decision"
             value="rejected"
+            pendingText="Kaydediliyor..."
             className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
           >
             Reddet
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </div>

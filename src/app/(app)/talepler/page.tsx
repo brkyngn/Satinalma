@@ -50,7 +50,7 @@ export default async function TalepListesiPage({
         {session.user.roles.includes("requester") && (
           <Link
             href="/talepler/yeni"
-            className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.97]"
           >
             Yeni Talep
           </Link>
@@ -104,7 +104,7 @@ export default async function TalepListesiPage({
         />
         <button
           type="submit"
-          className="col-span-2 rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 sm:col-span-5"
+          className="col-span-2 rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 active:bg-zinc-100 sm:col-span-5"
         >
           Filtrele
         </button>

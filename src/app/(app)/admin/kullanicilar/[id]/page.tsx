@@ -3,6 +3,7 @@ import { requirePageRole } from "@/lib/rbac";
 import { updateUserSchema } from "@/lib/validations/admin";
 import { getUser, updateUser } from "@/lib/services/users";
 import { ROLE_LABELS } from "@/lib/constants";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const ROLE_OPTIONS = Object.keys(ROLE_LABELS) as (keyof typeof ROLE_LABELS)[];
 
@@ -100,12 +101,12 @@ export default async function KullaniciDuzenlePage({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Kaydediliyor..."
           className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
         >
           Kaydet
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

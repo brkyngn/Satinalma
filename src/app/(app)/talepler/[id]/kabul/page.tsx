@@ -5,6 +5,7 @@ import { createDeliveryAcceptance } from "@/lib/services/delivery-acceptances";
 import { getPendingDeliveryForRequest } from "@/lib/services/deliveries";
 import { getPurchaseRequestDetail } from "@/lib/services/requests";
 import { validateFile, type UploadedFile } from "@/lib/services/quotes";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function KabulPage({
   params,
@@ -123,12 +124,12 @@ export default async function KabulPage({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Kaydediliyor..."
           className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
         >
           Kabulü Kaydet
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { ROLE_LABELS } from "@/lib/constants";
 import { DeleteButton } from "@/components/DeleteButton";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function TalepDetayPage({
   params,
@@ -84,25 +85,25 @@ export default async function TalepDetayPage({
           {isPurchasing && ["submitted", "quotes_collecting"].includes(request.status) && (
             <Link
               href={`/talepler/${id}/teklif-ekle`}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
+              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.97]"
             >
               Teklif Ekle
             </Link>
           )}
           {isPurchasing && request.status === "quotes_collecting" && request.quotes.length > 0 && (
             <form action={onayaSun}>
-              <button
-                type="submit"
+              <SubmitButton
+                pendingText="Gönderiliyor..."
                 className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               >
                 Onaya Sun
-              </button>
+              </SubmitButton>
             </form>
           )}
           {isApprover && request.status === "pending_approval" && (
             <Link
               href={`/talepler/${id}/onay`}
-              className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+              className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-amber-700 active:scale-[0.97]"
             >
               Değerlendir
             </Link>
@@ -110,7 +111,7 @@ export default async function TalepDetayPage({
           {isPurchasing && request.status === "approved" && (
             <Link
               href={`/talepler/${id}/sevkiyat`}
-              className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+              className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-violet-700 active:scale-[0.97]"
             >
               Sevkiyat Gir
             </Link>
@@ -118,7 +119,7 @@ export default async function TalepDetayPage({
           {roles.includes("site_manager") && request.status === "shipped" && (
             <Link
               href={`/talepler/${id}/kabul`}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-emerald-700 active:scale-[0.97]"
             >
               Teslimatı Kabul Et
             </Link>

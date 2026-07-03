@@ -4,6 +4,7 @@ import { createQuoteSchema } from "@/lib/validations/quote";
 import { addQuote, validateFile, type UploadedFile } from "@/lib/services/quotes";
 import { getPurchaseRequestDetail } from "@/lib/services/requests";
 import { CURRENCY_OPTIONS } from "@/lib/constants";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function TeklifEklePage({
   params,
@@ -158,12 +159,12 @@ export default async function TeklifEklePage({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Kaydediliyor..."
           className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
         >
           Teklifi Kaydet
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

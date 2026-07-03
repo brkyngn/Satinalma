@@ -4,6 +4,7 @@ import { createRequestSchema } from "@/lib/validations/request";
 import { createPurchaseRequest } from "@/lib/services/requests";
 import { listProjects } from "@/lib/services/projects";
 import { RequestItemsFields } from "@/components/RequestItemsFields";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function YeniTalepPage({
   searchParams,
@@ -100,12 +101,12 @@ export default async function YeniTalepPage({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Kaydediliyor..."
           className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
         >
           Talebi Oluştur
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

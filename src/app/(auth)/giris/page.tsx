@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/lib/auth";
+import { SubmitButton } from "@/components/SubmitButton";
 
 async function girisYap(formData: FormData) {
   "use server";
@@ -72,12 +73,12 @@ export default async function GirisPage({
             <p className="text-sm text-red-600">E-posta veya şifre hatalı.</p>
           )}
 
-          <button
-            type="submit"
+          <SubmitButton
+            pendingText="Giriş yapılıyor..."
             className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
           >
             Giriş Yap
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

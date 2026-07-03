@@ -1,3 +1,4 @@
+import { cache } from "react";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -10,9 +11,9 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 });
 
-export const {
+const {
   handlers: { GET, POST },
-  auth,
+  auth: uncachedAuth,
   signIn,
   signOut,
 } = NextAuth({
@@ -63,17 +64,36 @@ export const {
       // Rol/aktiflik durumu her session okumasında veritabanından tazelenir,
       // böylece admin bir kullanıcıyı pasife alır veya rolünü değiştirirse
       // etkisi mevcut oturumda da anında geçerli olur.
-      const currentUser = await prisma.user.findUnique({
-        where: { id: token.id },
-        include: { roles: { include: { role: true } } },
-      });
+      //
+      // `include` ile gelen ilişkiler bu Prisma sürümünde (driver adapter +
+      // Query Compiler) JOIN değil, ayrı round-trip'lere dönüşüyor (users ->
+      // user_roles -> roles, 3 ayrı istek). Uzak veritabanına her round-trip
+      // yüzlerce ms sürdüğünden, burada ilişkiyi include yerine WHERE...IN
+      // filtresiyle (tek sorguya derlenen EXISTS) sorguluyoruz ve iki sorguyu
+      // paralel çalıştırıyoruz — 3 sıralı round-trip yerine 1 round-trip'lik
+      // maliyet.
+      const [currentUser, roles] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: token.id },
+          select: { active: true },
+        }),
+        prisma.role.findMany({
+          where: { users: { some: { userId: token.id } } },
+          select: { name: true },
+        }),
+      ]);
 
       session.user.id = token.id;
-      session.user.roles = currentUser?.active
-        ? currentUser.roles.map((userRole) => userRole.role.name)
-        : [];
+      session.user.roles = currentUser?.active ? roles.map((role) => role.name) : [];
 
       return session;
     },
   },
 });
+
+// auth() birden fazla yerden (proxy, layout, sayfa) çağrılır; React cache()
+// olmadan her çağrı session callback'ini (ve dolayısıyla bir veritabanı
+// sorgusunu) tekrar tetikler. Tek bir istek içinde sonucu bir kez hesaplayıp
+// paylaşmak, uzak veritabanına yapılan gereksiz round-trip'leri önler.
+export const auth = cache(uncachedAuth);
+export { GET, POST, signIn, signOut };

@@ -3,6 +3,7 @@ import { requirePageRole } from "@/lib/rbac";
 import { createDeliverySchema } from "@/lib/validations/delivery";
 import { createDelivery, getApprovedQuoteForRequest } from "@/lib/services/deliveries";
 import { getPurchaseRequestDetail } from "@/lib/services/requests";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function SevkiyatPage({
   params,
@@ -84,12 +85,12 @@ export default async function SevkiyatPage({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Kaydediliyor..."
           className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
         >
           Sevkiyatı Kaydet
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );
