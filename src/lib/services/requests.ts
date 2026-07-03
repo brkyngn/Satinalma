@@ -133,6 +133,26 @@ export async function getPurchaseRequestDetail(session: Session, id: string) {
   return request;
 }
 
+export async function deletePurchaseRequest(session: Session, requestId: string) {
+  return prisma.$transaction(async (tx) => {
+    const request = await tx.purchaseRequest.findUniqueOrThrow({
+      where: { id: requestId },
+    });
+
+    await logAudit(tx, {
+      userId: session.user.id,
+      action: "request_deleted",
+      entityType: "PurchaseRequest",
+      entityId: requestId,
+      details: { requestNumber: request.requestNumber, title: request.title, status: request.status },
+    });
+
+    // Kalemler, teklifler (ve ekleri), onaylar ve sevkiyatlar (ve kabul kayıtları)
+    // şemadaki onDelete: Cascade ilişkileri sayesinde birlikte silinir.
+    await tx.purchaseRequest.delete({ where: { id: requestId } });
+  });
+}
+
 export async function submitRequestForApproval(
   session: Session,
   requestId: string

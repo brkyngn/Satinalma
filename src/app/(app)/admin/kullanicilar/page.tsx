@@ -1,11 +1,33 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requirePageRole } from "@/lib/rbac";
-import { listUsers } from "@/lib/services/users";
+import { listUsers, deleteUser } from "@/lib/services/users";
 import { ROLE_LABELS } from "@/lib/constants";
+import { DeleteButton } from "@/components/DeleteButton";
 
-export default async function KullanicilarPage() {
-  await requirePageRole(["admin"]);
+export default async function KullanicilarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const session = await requirePageRole(["admin"]);
   const users = await listUsers();
+  const { error } = await searchParams;
+
+  async function sil(userId: string) {
+    "use server";
+    const session = await requirePageRole(["admin"]);
+
+    try {
+      await deleteUser(session, userId);
+    } catch (serviceError) {
+      const message =
+        serviceError instanceof Error ? serviceError.message : "Kullanıcı silinemedi";
+      redirect(`/admin/kullanicilar?error=${encodeURIComponent(message)}`);
+    }
+
+    redirect("/admin/kullanicilar");
+  }
 
   return (
     <div>
@@ -18,6 +40,8 @@ export default async function KullanicilarPage() {
           Yeni Kullanıcı
         </Link>
       </div>
+
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
         <table className="w-full text-left text-sm">
@@ -52,12 +76,21 @@ export default async function KullanicilarPage() {
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <Link
-                    href={`/admin/kullanicilar/${user.id}`}
-                    className="text-sm text-zinc-600 hover:text-zinc-900"
-                  >
-                    Düzenle
-                  </Link>
+                  <div className="flex items-center justify-end gap-3">
+                    <Link
+                      href={`/admin/kullanicilar/${user.id}`}
+                      className="text-sm text-zinc-600 hover:text-zinc-900"
+                    >
+                      Düzenle
+                    </Link>
+                    {user.id !== session.user.id && (
+                      <form action={sil.bind(null, user.id)}>
+                        <DeleteButton
+                          confirmText={`"${user.name}" kullanıcısını silmek istediğinize emin misiniz?`}
+                        />
+                      </form>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

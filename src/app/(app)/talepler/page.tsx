@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/rbac";
-import { listPurchaseRequests } from "@/lib/services/requests";
+import { redirect } from "next/navigation";
+import { requireSession, requirePageRole } from "@/lib/rbac";
+import { listPurchaseRequests, deletePurchaseRequest } from "@/lib/services/requests";
 import { listProjects } from "@/lib/services/projects";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
+import { DeleteButton } from "@/components/DeleteButton";
 
 export default async function TalepListesiPage({
   searchParams,
@@ -15,6 +17,7 @@ export default async function TalepListesiPage({
     from?: string;
     to?: string;
     search?: string;
+    error?: string;
   }>;
 }) {
   const session = await requireSession();
@@ -23,6 +26,22 @@ export default async function TalepListesiPage({
     listPurchaseRequests(session, filters),
     listProjects(),
   ]);
+  const isAdmin = session.user.roles.includes("admin");
+
+  async function sil(requestId: string) {
+    "use server";
+    const session = await requirePageRole(["admin"]);
+
+    try {
+      await deletePurchaseRequest(session, requestId);
+    } catch (serviceError) {
+      const message =
+        serviceError instanceof Error ? serviceError.message : "Talep silinemedi";
+      redirect(`/talepler?error=${encodeURIComponent(message)}`);
+    }
+
+    redirect("/talepler");
+  }
 
   return (
     <div>
@@ -37,6 +56,8 @@ export default async function TalepListesiPage({
           </Link>
         )}
       </div>
+
+      {filters.error && <p className="mb-4 text-sm text-red-600">{filters.error}</p>}
 
       <form className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-5">
         <input
@@ -99,6 +120,7 @@ export default async function TalepListesiPage({
               <th className="px-4 py-2 font-medium">Talep Eden</th>
               <th className="px-4 py-2 font-medium">Durum</th>
               <th className="px-4 py-2 font-medium">Tarih</th>
+              {isAdmin && <th className="px-4 py-2" />}
             </tr>
           </thead>
           <tbody>
@@ -116,11 +138,20 @@ export default async function TalepListesiPage({
                   <StatusBadge status={request.status} />
                 </td>
                 <td className="px-4 py-2 text-zinc-500">{formatDate(request.createdAt)}</td>
+                {isAdmin && (
+                  <td className="px-4 py-2 text-right">
+                    <form action={sil.bind(null, request.id)}>
+                      <DeleteButton
+                        confirmText={`${request.requestNumber} numaralı talebi silmek istediğinize emin misiniz? Bu işlem tüm teklif, onay ve sevkiyat kayıtlarını da siler.`}
+                      />
+                    </form>
+                  </td>
+                )}
               </tr>
             ))}
             {requests.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
+                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-zinc-400">
                   Kayıt bulunamadı.
                 </td>
               </tr>

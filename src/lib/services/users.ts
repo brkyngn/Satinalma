@@ -46,6 +46,42 @@ export async function createUser(session: Session, input: CreateUserInput) {
   });
 }
 
+export async function deleteUser(session: Session, userId: string) {
+  if (userId === session.user.id) {
+    throw new Error("Kendi hesabınızı silemezsiniz");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const [requestCount, quoteCount, approvalCount, deliveryCount, acceptanceCount] =
+      await Promise.all([
+        tx.purchaseRequest.count({ where: { requesterId: userId } }),
+        tx.quote.count({ where: { enteredByUserId: userId } }),
+        tx.approval.count({ where: { approverId: userId } }),
+        tx.delivery.count({ where: { shippedByUserId: userId } }),
+        tx.deliveryAcceptance.count({ where: { acceptedByUserId: userId } }),
+      ]);
+
+    if (requestCount + quoteCount + approvalCount + deliveryCount + acceptanceCount > 0) {
+      throw new Error(
+        "Bu kullanıcının geçmiş işlem kayıtları var, izlenebilirlik için silinemez — bunun yerine pasife alın"
+      );
+    }
+
+    await logAudit(tx, {
+      userId: session.user.id,
+      action: "user_deleted",
+      entityType: "User",
+      entityId: userId,
+      details: { email: user.email },
+    });
+
+    // UserRole kayıtları şemadaki onDelete: Cascade ilişkisi sayesinde birlikte silinir.
+    await tx.user.delete({ where: { id: userId } });
+  });
+}
+
 export async function updateUser(
   session: Session,
   userId: string,

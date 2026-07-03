@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { requireSession } from "@/lib/rbac";
-import { getPurchaseRequestDetail, submitRequestForApproval } from "@/lib/services/requests";
+import { requireSession, requirePageRole } from "@/lib/rbac";
+import {
+  getPurchaseRequestDetail,
+  submitRequestForApproval,
+  deletePurchaseRequest,
+} from "@/lib/services/requests";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { ROLE_LABELS } from "@/lib/constants";
+import { DeleteButton } from "@/components/DeleteButton";
 
 export default async function TalepDetayPage({
   params,
@@ -19,12 +24,20 @@ export default async function TalepDetayPage({
   const roles = request ? session.user.roles : [];
   const isPurchasing = roles.includes("purchasing");
   const isApprover = roles.includes("approver");
+  const isAdmin = roles.includes("admin");
 
   async function onayaSun() {
     "use server";
     const session = await requireSession();
     await submitRequestForApproval(session, id);
     redirect(`/talepler/${id}`);
+  }
+
+  async function sil() {
+    "use server";
+    const session = await requirePageRole(["admin"]);
+    await deletePurchaseRequest(session, id);
+    redirect("/talepler");
   }
 
   return (
@@ -34,7 +47,16 @@ export default async function TalepDetayPage({
           <h1 className="text-lg font-semibold text-zinc-900">
             {request.requestNumber} — {request.title}
           </h1>
-          <StatusBadge status={request.status} />
+          <div className="flex items-center gap-3">
+            <StatusBadge status={request.status} />
+            {isAdmin && (
+              <form action={sil}>
+                <DeleteButton
+                  confirmText={`${request.requestNumber} numaralı talebi silmek istediğinize emin misiniz? Bu işlem tüm teklif, onay ve sevkiyat kayıtlarını da siler.`}
+                />
+              </form>
+            )}
+          </div>
         </div>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-zinc-600 sm:grid-cols-4">
           <div>

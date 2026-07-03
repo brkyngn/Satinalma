@@ -1,10 +1,32 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requirePageRole } from "@/lib/rbac";
-import { listProjects } from "@/lib/services/projects";
+import { listProjects, deleteProject } from "@/lib/services/projects";
+import { DeleteButton } from "@/components/DeleteButton";
 
-export default async function ProjelerPage() {
+export default async function ProjelerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   await requirePageRole(["admin"]);
   const projects = await listProjects();
+  const { error } = await searchParams;
+
+  async function sil(projectId: string) {
+    "use server";
+    const session = await requirePageRole(["admin"]);
+
+    try {
+      await deleteProject(session, projectId);
+    } catch (serviceError) {
+      const message =
+        serviceError instanceof Error ? serviceError.message : "Proje silinemedi";
+      redirect(`/admin/projeler?error=${encodeURIComponent(message)}`);
+    }
+
+    redirect("/admin/projeler");
+  }
 
   return (
     <div>
@@ -18,6 +40,8 @@ export default async function ProjelerPage() {
         </Link>
       </div>
 
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+
       <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
@@ -26,6 +50,7 @@ export default async function ProjelerPage() {
               <th className="px-4 py-2 font-medium">Ad</th>
               <th className="px-4 py-2 font-medium">Adres</th>
               <th className="px-4 py-2 font-medium">Durum</th>
+              <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody>
@@ -39,11 +64,18 @@ export default async function ProjelerPage() {
                     {project.active ? "Aktif" : "Pasif"}
                   </span>
                 </td>
+                <td className="px-4 py-2 text-right">
+                  <form action={sil.bind(null, project.id)}>
+                    <DeleteButton
+                      confirmText={`"${project.name}" projesini silmek istediğinize emin misiniz?`}
+                    />
+                  </form>
+                </td>
               </tr>
             ))}
             {projects.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-zinc-400">
+                <td colSpan={5} className="px-4 py-6 text-center text-zinc-400">
                   Henüz proje yok.
                 </td>
               </tr>
