@@ -1,0 +1,301 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Kullanıcılar ve Roller
+// ---------------------------------------------------------------------------
+
+enum RoleName {
+  admin
+  requester
+  purchasing
+  approver
+  site_manager
+}
+
+model Role {
+  id    String     @id @default(cuid())
+  name  RoleName   @unique
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  roles UserRole[]
+
+  requestsMade        PurchaseRequest[]     @relation("RequestRequester")
+  quotesEntered       Quote[]               @relation("QuoteEnteredBy")
+  approvalsGiven      Approval[]            @relation("ApprovalApprover")
+  deliveriesShipped   Delivery[]            @relation("DeliveryShippedBy")
+  deliveryAcceptances DeliveryAcceptance[]  @relation("AcceptanceAcceptedBy")
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------------------------
+// Proje / Şantiye
+// ---------------------------------------------------------------------------
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  address   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  requests PurchaseRequest[]
+
+  @@map("projects")
+}
+
+// ---------------------------------------------------------------------------
+// Satın Alma Talebi
+// ---------------------------------------------------------------------------
+
+enum RequestStatus {
+  draft
+  submitted
+  quotes_collecting
+  pending_approval
+  approved
+  rejected
+  shipped
+  delivered_pending_acceptance
+  accepted
+  partially_accepted
+  closed
+}
+
+model PurchaseRequest {
+  id            String        @id @default(cuid())
+  requestNumber String        @unique
+  requesterId   String
+  projectId     String
+  title         String
+  description   String?
+  neededByDate  DateTime?
+  status        RequestStatus @default(draft)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  requester User    @relation("RequestRequester", fields: [requesterId], references: [id])
+  project   Project @relation(fields: [projectId], references: [id])
+
+  items      PurchaseRequestItem[]
+  quotes     Quote[]
+  approvals  Approval[]
+  deliveries Delivery[]
+
+  @@index([projectId])
+  @@index([requesterId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("purchase_requests")
+}
+
+model PurchaseRequestItem {
+  id          String  @id @default(cuid())
+  requestId   String
+  productName String
+  quantity    Decimal @db.Decimal(14, 3)
+  unit        String
+  specNote    String?
+
+  request PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("purchase_request_items")
+}
+
+// ---------------------------------------------------------------------------
+// Teklifler
+// ---------------------------------------------------------------------------
+
+enum Currency {
+  TRY
+  USD
+  AZN
+}
+
+enum QuoteEntryType {
+  manual
+  file
+  both
+}
+
+model Quote {
+  id              String         @id @default(cuid())
+  requestId       String
+  supplierName    String
+  supplierContact String?
+  price           Decimal        @db.Decimal(14, 2)
+  currency        Currency       @default(TRY)
+  paymentTerms    String?
+  deliveryTime    String?
+  entryType       QuoteEntryType @default(manual)
+  notes           String?
+  enteredByUserId String
+  createdAt       DateTime       @default(now())
+
+  request    PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  enteredBy  User            @relation("QuoteEnteredBy", fields: [enteredByUserId], references: [id])
+  attachments QuoteAttachment[]
+  approvals   Approval[]      @relation("ApprovalSelectedQuote")
+  deliveries  Delivery[]
+
+  @@index([requestId])
+  @@map("quotes")
+}
+
+model QuoteAttachment {
+  id         String   @id @default(cuid())
+  quoteId    String
+  fileData   Bytes
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  uploadedAt DateTime @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@map("quote_attachments")
+}
+
+// ---------------------------------------------------------------------------
+// Onay
+// ---------------------------------------------------------------------------
+
+enum ApprovalDecision {
+  approved
+  rejected
+}
+
+model Approval {
+  id              String           @id @default(cuid())
+  requestId       String
+  selectedQuoteId String?
+  approverId      String
+  decision        ApprovalDecision
+  comment         String?
+  decidedAt       DateTime         @default(now())
+
+  request       PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  selectedQuote Quote?          @relation("ApprovalSelectedQuote", fields: [selectedQuoteId], references: [id])
+  approver      User            @relation("ApprovalApprover", fields: [approverId], references: [id])
+
+  @@index([requestId])
+  @@map("approvals")
+}
+
+// ---------------------------------------------------------------------------
+// Sevkiyat ve Şantiye Kabul
+// ---------------------------------------------------------------------------
+
+model Delivery {
+  id              String   @id @default(cuid())
+  requestId       String
+  quoteId         String
+  shippedDate     DateTime
+  waybillNumber   String
+  shippedByUserId String
+  notes           String?
+
+  request   PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  quote     Quote           @relation(fields: [quoteId], references: [id])
+  shippedBy User            @relation("DeliveryShippedBy", fields: [shippedByUserId], references: [id])
+
+  acceptance DeliveryAcceptance?
+
+  @@index([requestId])
+  @@map("deliveries")
+}
+
+enum AcceptanceStatus {
+  full
+  partial
+  rejected
+}
+
+model DeliveryAcceptance {
+  id               String           @id @default(cuid())
+  deliveryId       String           @unique
+  acceptedByUserId String
+  acceptedQuantity Decimal          @db.Decimal(14, 3)
+  status           AcceptanceStatus
+  notes            String?
+  acceptedAt       DateTime         @default(now())
+
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  acceptedBy User     @relation("AcceptanceAcceptedBy", fields: [acceptedByUserId], references: [id])
+
+  attachments DeliveryAcceptanceAttachment[]
+
+  @@map("delivery_acceptances")
+}
+
+model DeliveryAcceptanceAttachment {
+  id                   String   @id @default(cuid())
+  deliveryAcceptanceId String
+  fileData             Bytes
+  fileName             String
+  mimeType             String
+  fileSize             Int
+  uploadedAt           DateTime @default(now())
+
+  deliveryAcceptance DeliveryAcceptance @relation(fields: [deliveryAcceptanceId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryAcceptanceId])
+  @@map("delivery_acceptance_attachments")
+}
+
+// ---------------------------------------------------------------------------
+// Denetim Kaydı
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
