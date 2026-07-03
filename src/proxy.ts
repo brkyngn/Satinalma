@@ -14,7 +14,21 @@ import type { NextRequest } from "next/server";
 // gecikmesini her tıklamaya ekliyordu. getToken() ise sadece JWT çözer,
 // veritabanına gitmez — burada tek ihtiyacımız "oturum var mı" bilgisi.
 export default async function proxy(request: NextRequest) {
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  // getToken() varsayılan olarak secureCookie=false kabul eder ve bu durumda
+  // güvensiz (prefix'siz) çerez adına bakar. Render gibi HTTPS'i reverse proxy'de
+  // sonlandıran platformlarda auth()/signIn() (trustHost sayesinde) isteğin HTTPS
+  // olduğunu anlayıp `__Secure-` önekli çerez adını kullanıyor — secureCookie
+  // açıkça verilmezse getToken() bu çerezi hiç bulamıyor ve kullanıcı her zaman
+  // oturumsuz görünüyordu (başarılı girişten hemen sonra tekrar /giris'e düşme).
+  const secureCookie =
+    request.nextUrl.protocol === "https:" ||
+    request.headers.get("x-forwarded-proto") === "https";
+
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+    secureCookie,
+  });
   const isLoggedIn = !!token;
   const { pathname } = request.nextUrl;
 
