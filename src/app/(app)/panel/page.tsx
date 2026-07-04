@@ -55,10 +55,10 @@ export default async function PanelPage() {
             <Link
               key={card.label}
               href={card.href}
-              className="rounded-lg border border-amber-200 bg-amber-50 p-4 transition-all hover:border-amber-300 active:scale-[0.98]"
+              className="rounded-lg border border-brand-red/30 bg-brand-red/5 p-4 transition-all hover:border-brand-red/50 active:scale-[0.98]"
             >
-              <p className="text-2xl font-semibold text-amber-800">{card.count}</p>
-              <p className="mt-1 text-sm text-amber-700">{card.label}</p>
+              <p className="text-2xl font-semibold text-brand-red">{card.count}</p>
+              <p className="mt-1 text-sm text-brand-red/80">{card.label}</p>
             </Link>
           ))}
         </div>

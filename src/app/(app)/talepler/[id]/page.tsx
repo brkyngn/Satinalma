@@ -85,7 +85,7 @@ export default async function TalepDetayPage({
           {isPurchasing && ["submitted", "quotes_collecting"].includes(request.status) && (
             <Link
               href={`/talepler/${id}/teklif-ekle`}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.97]"
+              className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-brand-navy-dark active:scale-[0.97]"
             >
               Teklif Ekle
             </Link>

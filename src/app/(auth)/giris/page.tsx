@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/lib/auth";
@@ -28,12 +29,24 @@ export default async function GirisPage({
   const { error } = await searchParams;
 
   return (
-    <div className="flex min-h-screen flex-1 items-center justify-center bg-zinc-50 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-1 text-lg font-semibold text-zinc-900">
+    <div className="flex min-h-screen flex-1 items-center justify-center bg-brand-navy px-4">
+      <div className="w-full max-w-sm rounded-lg border-t-4 border-brand-red bg-white p-8 shadow-xl">
+        <div className="mb-6 flex justify-center">
+          <Image
+            src="/alucon-logo.png"
+            alt="Alucon Group"
+            width={952}
+            height={491}
+            priority
+            className="h-14 w-auto"
+          />
+        </div>
+        <h1 className="mb-1 text-center text-lg font-semibold text-zinc-900">
           Şantiye Satın Alma Yönetim Sistemi
         </h1>
-        <p className="mb-6 text-sm text-zinc-500">Devam etmek için giriş yapın</p>
+        <p className="mb-6 text-center text-sm text-zinc-500">
+          Devam etmek için giriş yapın
+        </p>
 
         <form action={girisYap} className="space-y-4">
           <div>
@@ -49,7 +62,7 @@ export default async function GirisPage({
               type="email"
               required
               autoComplete="email"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-navy focus:outline-none"
             />
           </div>
           <div>
@@ -65,17 +78,17 @@ export default async function GirisPage({
               type="password"
               required
               autoComplete="current-password"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand-navy focus:outline-none"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-red-600">E-posta veya şifre hatalı.</p>
+            <p className="text-sm text-brand-red">E-posta veya şifre hatalı.</p>
           )}
 
           <SubmitButton
             pendingText="Giriş yapılıyor..."
-            className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            className="w-full rounded-md bg-brand-navy px-3 py-2 text-sm font-medium text-white hover:bg-brand-navy-dark"
           >
             Giriş Yap
           </SubmitButton>

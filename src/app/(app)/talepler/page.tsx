@@ -50,7 +50,7 @@ export default async function TalepListesiPage({
         {session.user.roles.includes("requester") && (
           <Link
             href="/talepler/yeni"
-            className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-all hover:bg-zinc-800 active:scale-[0.97]"
+            className="rounded-md bg-brand-navy px-3 py-2 text-sm font-medium text-white transition-all hover:bg-brand-navy-dark active:scale-[0.97]"
           >
             Yeni Talep
           </Link>

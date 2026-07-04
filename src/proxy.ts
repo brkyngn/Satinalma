@@ -43,6 +43,10 @@ export default async function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+// Dosya uzantısı içeren yollar (ör. /alucon-logo.png) da hariç tutulur; aksi
+// halde public/ klasöründeki statik dosyalar (ve bunları optimize etmek için
+// Next.js'in yaptığı iç istekler) oturum kontrolünden geçip /giris'e
+// yönlendiriliyor, bu da <img>/<Image> için bozuk dosya hatasına yol açıyordu.
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\..*|favicon.ico).*)"],
 };

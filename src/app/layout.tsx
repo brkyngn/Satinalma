@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   description: "İç satın alma talep, teklif, onay ve teslimat süreçleri yönetimi",
 };
 
+export const viewport = {
+  themeColor: "#1f315e",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

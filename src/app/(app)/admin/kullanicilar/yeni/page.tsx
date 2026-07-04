@@ -99,7 +99,7 @@ export default async function YeniKullaniciPage({
 
         <SubmitButton
           pendingText="Kaydediliyor..."
-          className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          className="w-full rounded-md bg-brand-navy px-3 py-2 text-sm font-medium text-white hover:bg-brand-navy-dark"
         >
           Kullanıcı Oluştur
         </SubmitButton>
