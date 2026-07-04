@@ -153,6 +153,46 @@ export async function deletePurchaseRequest(session: Session, requestId: string)
   });
 }
 
+export type DashboardStats = {
+  total: number;
+  byStatus: Record<string, number>;
+  awaitingQuotes: number;
+  awaitingApproval: number;
+  awaitingAcceptance: number;
+};
+
+export async function getDashboardStats(session: Session): Promise<DashboardStats> {
+  const isRequesterOnly =
+    session.user.roles.length === 1 && session.user.roles[0] === "requester";
+
+  const where: Prisma.PurchaseRequestWhereInput = isRequesterOnly
+    ? { requesterId: session.user.id }
+    : {};
+
+  // Tek sorguda tüm durumların sayısını almak için groupBy kullanılıyor;
+  // her durum için ayrı count() çağırmak N ayrı round-trip'e yol açardı.
+  const grouped = await prisma.purchaseRequest.groupBy({
+    by: ["status"],
+    where,
+    _count: true,
+  });
+
+  const byStatus: Record<string, number> = {};
+  let total = 0;
+  for (const row of grouped) {
+    byStatus[row.status] = row._count;
+    total += row._count;
+  }
+
+  return {
+    total,
+    byStatus,
+    awaitingQuotes: (byStatus.submitted ?? 0) + (byStatus.quotes_collecting ?? 0),
+    awaitingApproval: byStatus.pending_approval ?? 0,
+    awaitingAcceptance: byStatus.delivered_pending_acceptance ?? 0,
+  };
+}
+
 export async function submitRequestForApproval(
   session: Session,
   requestId: string
