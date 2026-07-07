@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import type { CreateQuoteInput } from "@/lib/validations/quote";
+import type { CreateQuoteInput, QuoteItemPriceInput } from "@/lib/validations/quote";
 import type { Session } from "next-auth";
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -27,16 +27,24 @@ export async function addQuote(
   session: Session,
   requestId: string,
   input: CreateQuoteInput,
-  files: UploadedFile[]
+  files: UploadedFile[],
+  itemPrices: QuoteItemPriceInput[] = []
 ) {
   return prisma.$transaction(async (tx) => {
     const request = await tx.purchaseRequest.findUniqueOrThrow({
       where: { id: requestId },
+      include: { items: { select: { id: true } } },
     });
 
     if (!["submitted", "quotes_collecting"].includes(request.status)) {
       throw new Error("Bu talebe artık teklif eklenemez");
     }
+
+    // Girilen kalem fiyatlarının gerçekten bu talebe ait kalemler olduğunu doğrula.
+    const validItemIds = new Set(request.items.map((item) => item.id));
+    const cleanItemPrices = itemPrices.filter((entry) =>
+      validItemIds.has(entry.itemId)
+    );
 
     const entryType = files.length > 0 ? "both" : "manual";
 
@@ -58,6 +66,12 @@ export async function addQuote(
             fileName: file.fileName,
             mimeType: file.mimeType,
             fileSize: file.fileSize,
+          })),
+        },
+        items: {
+          create: cleanItemPrices.map((entry) => ({
+            itemId: entry.itemId,
+            unitPrice: entry.unitPrice,
           })),
         },
       },

@@ -36,4 +36,6 @@ export const ROLE_LABELS: Record<RoleName, string> = {
   site_manager: "Şantiye Sorumlusu",
 };
 
-export const CURRENCY_OPTIONS = ["TRY", "USD", "AZN"] as const;
+export const CURRENCY_OPTIONS = ["AZN", "TRY", "USD", "EUR"] as const;
+
+export const DEFAULT_CURRENCY = "AZN";

@@ -7,10 +7,17 @@ import type { Prisma } from "../../../generated/prisma/client";
 async function generateRequestNumber(tx: Prisma.TransactionClient) {
   const year = new Date().getFullYear();
   const prefix = `PR-${year}-`;
-  const count = await tx.purchaseRequest.count({
+  // Sıra numarası, silinen kayıtlardan etkilenmemesi için adet (count) yerine
+  // mevcut en büyük numaradan türetilir. Numaralar sıfır dolgulu olduğundan
+  // sözlüksel azalan sıralama, sayısal en büyüğü verir.
+  const latest = await tx.purchaseRequest.findFirst({
     where: { requestNumber: { startsWith: prefix } },
+    orderBy: { requestNumber: "desc" },
+    select: { requestNumber: true },
   });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  const lastSeq = latest ? Number(latest.requestNumber.slice(prefix.length)) : 0;
+  const nextSeq = Number.isFinite(lastSeq) ? lastSeq + 1 : 1;
+  return `${prefix}${String(nextSeq).padStart(4, "0")}`;
 }
 
 export async function createPurchaseRequest(
@@ -104,7 +111,11 @@ export async function getPurchaseRequestDetail(session: Session, id: string) {
       requester: true,
       items: true,
       quotes: {
-        include: { attachments: true, enteredBy: true },
+        include: {
+          attachments: true,
+          enteredBy: true,
+          items: { include: { item: true } },
+        },
         orderBy: { createdAt: "asc" },
       },
       approvals: {

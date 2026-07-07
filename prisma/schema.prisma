@@ -131,7 +131,8 @@ model PurchaseRequestItem {
   unit        String
   specNote    String?
 
-  request PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  request    PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  quoteItems QuoteItem[]
 
   @@index([requestId])
   @@map("purchase_request_items")
@@ -145,6 +146,7 @@ enum Currency {
   TRY
   USD
   AZN
+  EUR
 }
 
 enum QuoteEntryType {
@@ -159,7 +161,7 @@ model Quote {
   supplierName    String
   supplierContact String?
   price           Decimal        @db.Decimal(14, 2)
-  currency        Currency       @default(TRY)
+  currency        Currency       @default(AZN)
   paymentTerms    String?
   deliveryTime    String?
   entryType       QuoteEntryType @default(manual)
@@ -170,11 +172,31 @@ model Quote {
   request    PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   enteredBy  User            @relation("QuoteEnteredBy", fields: [enteredByUserId], references: [id])
   attachments QuoteAttachment[]
+  items       QuoteItem[]
   approvals   Approval[]      @relation("ApprovalSelectedQuote")
   deliveries  Delivery[]
 
   @@index([requestId])
   @@map("quotes")
+}
+
+// Bir teklifin, talepteki her bir kaleme karşılık gelen birim fiyatı.
+// Teklifin toplam tutarı (Quote.price) ayrıca ve zorunlu olarak girilir;
+// kalem bazlı fiyatlar isteğe bağlı bir detaydır (tedarikçi toplu fiyat da
+// verebilir). Aynı teklifte aynı kalem yalnızca bir kez fiyatlanabilir.
+model QuoteItem {
+  id        String  @id @default(cuid())
+  quoteId   String
+  itemId    String
+  unitPrice Decimal @db.Decimal(14, 2)
+
+  quote Quote               @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  item  PurchaseRequestItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, itemId])
+  @@index([quoteId])
+  @@index([itemId])
+  @@map("quote_items")
 }
 
 model QuoteAttachment {

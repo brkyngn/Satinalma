@@ -1,10 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { requirePageRole } from "@/lib/rbac";
-import { createQuoteSchema } from "@/lib/validations/quote";
+import { createQuoteSchema, type QuoteItemPriceInput } from "@/lib/validations/quote";
 import { addQuote, validateFile, type UploadedFile } from "@/lib/services/quotes";
 import { getPurchaseRequestDetail } from "@/lib/services/requests";
-import { CURRENCY_OPTIONS } from "@/lib/constants";
+import { CURRENCY_OPTIONS, DEFAULT_CURRENCY } from "@/lib/constants";
 import { SubmitButton } from "@/components/SubmitButton";
+import { QuoteItemPriceFields } from "@/components/QuoteItemPriceFields";
 
 export default async function TeklifEklePage({
   params,
@@ -19,6 +20,10 @@ export default async function TeklifEklePage({
 
   const request = await getPurchaseRequestDetail(session, id);
   if (!request) notFound();
+
+  // Sunucu action'ında talebin kalem kimlikleri kapanış (closure) ile taşınır;
+  // her kalem için formda itemPrice_<itemId> alanı okunur.
+  const itemIds = request.items.map((item) => item.id);
 
   async function ekle(formData: FormData) {
     "use server";
@@ -36,6 +41,21 @@ export default async function TeklifEklePage({
 
     if (!parsed.success) {
       redirect(`/talepler/${id}/teklif-ekle?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+    }
+
+    // Kalem bazlı birim fiyatlar isteğe bağlıdır; boş bırakılanlar atlanır,
+    // dolu olanlar 0'dan küçük olmayan geçerli bir sayı olmalıdır.
+    const itemPrices: QuoteItemPriceInput[] = [];
+    for (const itemId of itemIds) {
+      const raw = formData.get(`itemPrice_${itemId}`);
+      if (raw == null || String(raw).trim() === "") continue;
+      const unitPrice = Number(raw);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        redirect(
+          `/talepler/${id}/teklif-ekle?error=${encodeURIComponent("Kalem birim fiyatı geçersiz")}`
+        );
+      }
+      itemPrices.push({ itemId, unitPrice });
     }
 
     const fileEntries = formData.getAll("attachments").filter(
@@ -59,7 +79,7 @@ export default async function TeklifEklePage({
     );
 
     try {
-      await addQuote(session, id, parsed.data, files);
+      await addQuote(session, id, parsed.data, files, itemPrices);
     } catch (serviceError) {
       const message =
         serviceError instanceof Error ? serviceError.message : "Teklif eklenemedi";
@@ -70,7 +90,7 @@ export default async function TeklifEklePage({
   }
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-2xl">
       <h1 className="mb-1 text-lg font-semibold text-zinc-900">Teklif Ekle</h1>
       <p className="mb-4 text-sm text-zinc-500">
         {request.requestNumber} — {request.title}
@@ -97,7 +117,9 @@ export default async function TeklifEklePage({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">Fiyat</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">
+              Toplam Teklif Tutarı
+            </label>
             <input
               name="price"
               type="number"
@@ -111,7 +133,7 @@ export default async function TeklifEklePage({
             <label className="mb-1 block text-sm font-medium text-zinc-700">Para Birimi</label>
             <select
               name="currency"
-              defaultValue="TRY"
+              defaultValue={DEFAULT_CURRENCY}
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
             >
               {CURRENCY_OPTIONS.map((currency) => (
@@ -122,6 +144,27 @@ export default async function TeklifEklePage({
             </select>
           </div>
         </div>
+
+        {request.items.length > 0 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">
+              Kalem Bazlı Birim Fiyatlar{" "}
+              <span className="text-zinc-400">(isteğe bağlı)</span>
+            </label>
+            <p className="mb-2 text-xs text-zinc-500">
+              Tedarikçi kalem kalem fiyat verdiyse buraya girin. Boş bırakılan
+              kalemler dikkate alınmaz; toplam tutar yukarıdaki alandan geçerlidir.
+            </p>
+            <QuoteItemPriceFields
+              items={request.items.map((item) => ({
+                id: item.id,
+                productName: item.productName,
+                quantity: item.quantity.toString(),
+                unit: item.unit,
+              }))}
+            />
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">Ödeme Koşulu</label>
           <input

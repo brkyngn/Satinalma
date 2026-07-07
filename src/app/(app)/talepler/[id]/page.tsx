@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireSession, requirePageRole } from "@/lib/rbac";
@@ -163,7 +164,7 @@ export default async function TalepDetayPage({
               <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">Tedarikçi</th>
-                  <th className="px-4 py-2 font-medium">Fiyat</th>
+                  <th className="px-4 py-2 font-medium">Toplam Tutar</th>
                   <th className="px-4 py-2 font-medium">Ödeme</th>
                   <th className="px-4 py-2 font-medium">Teslim Süresi</th>
                   <th className="px-4 py-2 font-medium">Dosyalar</th>
@@ -178,34 +179,75 @@ export default async function TalepDetayPage({
                       approval.selectedQuoteId === quote.id
                   );
                   return (
-                    <tr
-                      key={quote.id}
-                      className={`border-b border-zinc-100 last:border-0 ${isSelected ? "bg-emerald-50" : ""}`}
-                    >
-                      <td className="px-4 py-2 text-zinc-900">
-                        {quote.supplierName}
-                        {isSelected && (
-                          <span className="ml-2 text-xs font-medium text-emerald-700">Seçildi</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-zinc-700">
-                        {formatMoney(quote.price.toString(), quote.currency)}
-                      </td>
-                      <td className="px-4 py-2 text-zinc-600">{quote.paymentTerms}</td>
-                      <td className="px-4 py-2 text-zinc-600">{quote.deliveryTime}</td>
-                      <td className="px-4 py-2 text-zinc-600">
-                        {quote.attachments.map((attachment) => (
-                          <a
-                            key={attachment.id}
-                            href={`/api/quotes/${quote.id}/attachments/${attachment.id}`}
-                            className="mr-2 text-zinc-600 underline hover:text-zinc-900"
-                          >
-                            {attachment.fileName}
-                          </a>
-                        ))}
-                      </td>
-                      <td className="px-4 py-2 text-zinc-500">{quote.enteredBy.name}</td>
-                    </tr>
+                    <Fragment key={quote.id}>
+                      <tr
+                        className={`border-b border-zinc-100 ${quote.items.length === 0 ? "last:border-0" : ""} ${isSelected ? "bg-emerald-50" : ""}`}
+                      >
+                        <td className="px-4 py-2 text-zinc-900">
+                          {quote.supplierName}
+                          {isSelected && (
+                            <span className="ml-2 text-xs font-medium text-emerald-700">Seçildi</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 font-medium text-zinc-800">
+                          {formatMoney(quote.price.toString(), quote.currency)}
+                        </td>
+                        <td className="px-4 py-2 text-zinc-600">{quote.paymentTerms}</td>
+                        <td className="px-4 py-2 text-zinc-600">{quote.deliveryTime}</td>
+                        <td className="px-4 py-2 text-zinc-600">
+                          {quote.attachments.map((attachment) => (
+                            <a
+                              key={attachment.id}
+                              href={`/api/quotes/${quote.id}/attachments/${attachment.id}`}
+                              className="mr-2 text-zinc-600 underline hover:text-zinc-900"
+                            >
+                              {attachment.fileName}
+                            </a>
+                          ))}
+                        </td>
+                        <td className="px-4 py-2 text-zinc-500">{quote.enteredBy.name}</td>
+                      </tr>
+                      {quote.items.length > 0 && (
+                        <tr className={`border-b border-zinc-100 last:border-0 ${isSelected ? "bg-emerald-50" : ""}`}>
+                          <td colSpan={6} className="px-4 pb-3">
+                            <div className="overflow-hidden rounded-md border border-zinc-200">
+                              <table className="w-full text-left text-xs">
+                                <thead className="bg-zinc-50 text-zinc-500">
+                                  <tr>
+                                    <th className="px-3 py-1.5 font-medium">Kalem</th>
+                                    <th className="px-3 py-1.5 font-medium">Miktar</th>
+                                    <th className="px-3 py-1.5 font-medium">Birim Fiyat</th>
+                                    <th className="px-3 py-1.5 text-right font-medium">Satır Tutarı</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {quote.items.map((quoteItem) => {
+                                    const lineTotal =
+                                      Number(quoteItem.unitPrice) * Number(quoteItem.item.quantity);
+                                    return (
+                                      <tr key={quoteItem.id} className="border-t border-zinc-100">
+                                        <td className="px-3 py-1.5 text-zinc-800">
+                                          {quoteItem.item.productName}
+                                        </td>
+                                        <td className="px-3 py-1.5 text-zinc-600">
+                                          {quoteItem.item.quantity.toString()} {quoteItem.item.unit}
+                                        </td>
+                                        <td className="px-3 py-1.5 text-zinc-600">
+                                          {formatMoney(quoteItem.unitPrice.toString(), quote.currency)}
+                                        </td>
+                                        <td className="px-3 py-1.5 text-right text-zinc-700">
+                                          {formatMoney(lineTotal, quote.currency)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>

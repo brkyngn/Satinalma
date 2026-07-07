@@ -2,9 +2,10 @@ const CURRENCY_LABELS: Record<string, string> = {
   TRY: "TL",
   USD: "USD",
   AZN: "AZN",
+  EUR: "EUR",
 };
 
-export function formatMoney(amount: number | string, currency: string = "TRY") {
+export function formatMoney(amount: number | string, currency: string = "AZN") {
   const value = typeof amount === "string" ? Number(amount) : amount;
   const formatted = new Intl.NumberFormat("tr-TR", {
     minimumFractionDigits: 0,

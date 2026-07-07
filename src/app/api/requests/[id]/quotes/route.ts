@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiRole } from "@/lib/rbac";
-import { createQuoteSchema } from "@/lib/validations/quote";
+import { createQuoteSchema, type QuoteItemPriceInput } from "@/lib/validations/quote";
 import { addQuote, validateFile, type UploadedFile } from "@/lib/services/quotes";
 
 // POST: talebe teklif ekler (purchasing) — manuel alanlar + dosya yükleme (multipart/form-data).
@@ -48,8 +48,24 @@ export async function POST(
     }))
   );
 
+  // Kalem bazlı birim fiyatlar itemPrice_<itemId> alanlarıyla gelir; addQuote
+  // içinde itemId'lerin bu talebe ait olduğu ayrıca doğrulanır.
+  const itemPrices: QuoteItemPriceInput[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("itemPrice_")) continue;
+    if (typeof value !== "string" || value.trim() === "") continue;
+    const unitPrice = Number(value);
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      return NextResponse.json(
+        { error: "Kalem birim fiyatı geçersiz" },
+        { status: 400 }
+      );
+    }
+    itemPrices.push({ itemId: key.slice("itemPrice_".length), unitPrice });
+  }
+
   try {
-    const quote = await addQuote(result.session, id, parsed.data, files);
+    const quote = await addQuote(result.session, id, parsed.data, files, itemPrices);
     return NextResponse.json(quote, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Teklif eklenemedi";
