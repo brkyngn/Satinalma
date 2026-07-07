@@ -53,16 +53,37 @@ npm run dev
 
 Her durum değişikliği `AuditLog` tablosuna kaydedilir.
 
-## Render / Railway Deploy
+## Railway Deploy (önerilen)
 
-- **Language:** Node
-- **Root Directory:** boş (repo kökü)
-- **Build Command:** `npm ci && npm run build`
-- **Start Command:** `npm run start`
-- **Environment Variables:** `DATABASE_URL`, `AUTH_SECRET` (Environment sekmesinden ekleyin)
-- **Node sürümü:** Prisma 7, `^20.19 || ^22.12 || >=24.0` gerektirir — platformun Node sürüm ayarını (`NODE_VERSION` env değişkeni veya eşdeğeri) bu aralığa göre ayarlayın.
+Uygulama ve PostgreSQL'i aynı Railway projesinde barındırmak, veritabanı
+gecikmesini en aza indirir (özel ağ üzerinden bağlantı, bulutlar arası tur yok).
 
-PostgreSQL veritabanını da aynı platformda (mümkünse aynı bölgede) oluşturup `DATABASE_URL`'i oradan alın.
+1. Railway projesinde **New → GitHub Repo** ile bu repoyu ekleyin. `railway.json`
+   sayesinde build (`npm run build`) ve start (`npm run start` — önce
+   `prisma migrate deploy` çalıştırır) komutları otomatik ayarlanır.
+2. Servisin **Variables** sekmesinde şu değişkenleri ekleyin:
+   - `DATABASE_URL` = Postgres servisinin **özel** (internal) adresi, ör.
+     `postgresql://postgres:PAROLA@postgres.railway.internal:5432/railway`.
+     (Railway'de `${{Postgres.DATABASE_URL}}` referansı da kullanılabilir.)
+     `railway.internal` içeren adreslerde uygulama TLS'i otomatik kapatır;
+     public `*.rlwy.net` adreslerinde ise kendinden imzalı sertifika için
+     TLS'i açar. `?sslmode=require` **eklemeyin**.
+   - `AUTH_SECRET` = `openssl rand -base64 32` çıktısı.
+   - `NODE_ENV` = `production`.
+3. **Settings → Networking → Generate Domain** ile public bir alan adı üretin.
+   NextAuth `trustHost: true` ile host'u başlıklardan aldığı için ayrıca
+   `NEXTAUTH_URL`/`AUTH_URL` gerekmez.
+4. İlk deploy'da `prisma migrate deploy` migration'ları uygular. Yönetici
+   hesabını oluşturmak için servis kabuğunda (Railway → service → shell) bir kez
+   `npx prisma db seed` çalıştırın (varsayılan: `admin@santiye.local` /
+   `Admin123!`; `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` ile değiştirilebilir).
+
+**Node sürümü:** Prisma 7 `^20.19 || ^22.12 || >=24.0` gerektirir; `package.json`
+`engines` alanı bunu belirtir, Nixpacks buna uyar.
+
+> Render gibi başka bir platform kullanılacaksa: Build `npm ci && npm run build`,
+> Start `npm run start`, aynı env değişkenleri. Ancak veritabanı Railway'de
+> kalırsa bulutlar arası gecikme yaşanır — bu yüzden Railway önerilir.
 
 ## Geliştirme Notları
 

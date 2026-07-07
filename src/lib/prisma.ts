@@ -1,11 +1,20 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../generated/prisma/client";
 
-// rejectUnauthorized: false — Railway/Render gibi barındırılan Postgres'lerin
-// proxy katmanı kendinden imzalı sertifika kullanır; bağlantı yine de TLS ile şifrelenir.
+const connectionString = process.env.DATABASE_URL ?? "";
+
+// Railway'in özel ağı (postgres.railway.internal) ve yerel Postgres TLS
+// kullanmaz; bu durumlarda SSL'i açmak bağlantıyı bozar. Public proxy üzerinden
+// (ör. *.rlwy.net) bağlanıldığında ise sertifika kendinden imzalı olduğundan
+// rejectUnauthorized: false ile TLS kullanılır.
+const usesInternalNetwork =
+  connectionString.includes("railway.internal") ||
+  connectionString.includes("localhost") ||
+  connectionString.includes("127.0.0.1");
+
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL!,
-  ssl: { rejectUnauthorized: false },
+  connectionString,
+  ...(usesInternalNetwork ? {} : { ssl: { rejectUnauthorized: false } }),
 });
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
