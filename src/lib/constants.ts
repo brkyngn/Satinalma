@@ -44,6 +44,15 @@ export const DEFAULT_CURRENCY = "AZN";
 
 // --- Demirbaş ve Zimmet modülü ---
 
+// Görüntüleme (liste/detay/özet/dışa aktarma) — admin hasRole ile zaten dahil.
+export const INVENTORY_VIEW_ROLES: RoleName[] = [
+  "inventory_manager",
+  "inventory_viewer",
+];
+
+// İşlem yapma (ekle/düzenle/transfer/zimmet/iade/durum/içe aktar/tanımlar).
+export const INVENTORY_MANAGE_ROLES: RoleName[] = ["inventory_manager"];
+
 export const WAREHOUSE_TYPE_LABELS: Record<string, string> = {
   merkez: "Merkez Depo",
   santiye: "Şantiye",

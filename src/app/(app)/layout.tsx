@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { requireSession } from "@/lib/rbac";
+import { requireSession, hasRole } from "@/lib/rbac";
+import { INVENTORY_VIEW_ROLES } from "@/lib/constants";
 import { signOut } from "@/lib/auth";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -20,6 +21,7 @@ export default async function AppLayout({
   const session = await requireSession();
   const roles = session.user.roles;
   const isAdmin = roles.includes("admin");
+  const canSeeInventory = hasRole(roles, INVENTORY_VIEW_ROLES);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -46,6 +48,11 @@ export default async function AppLayout({
               <Link href="/talepler" className="transition-colors hover:text-white active:text-brand-red">
                 Talepler
               </Link>
+              {canSeeInventory && (
+                <Link href="/demirbas" className="transition-colors hover:text-white active:text-brand-red">
+                  Demirbaş
+                </Link>
+              )}
               {isAdmin && (
                 <>
                   <Link
