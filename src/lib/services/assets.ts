@@ -157,6 +157,134 @@ export async function archiveAsset(session: Session, id: string, archived: boole
   return asset;
 }
 
+// --- İşlemler (her biri hareket geçmişine kayıt düşer) ---
+
+// Depolar arası transfer: bir veya birden fazla demirbaşın konumunu değiştirir.
+export async function transferAssets(
+  session: Session,
+  assetIds: string[],
+  toWarehouseId: string,
+  note?: string
+) {
+  if (assetIds.length === 0) throw new Error("Demirbaş seçilmedi");
+
+  return prisma.$transaction(async (tx) => {
+    const warehouse = await tx.warehouse.findUnique({ where: { id: toWarehouseId } });
+    if (!warehouse) throw new Error("Hedef depo bulunamadı");
+
+    const assets = await tx.asset.findMany({ where: { id: { in: assetIds } } });
+    for (const asset of assets) {
+      if (asset.currentWarehouseId === toWarehouseId) continue; // aynı depoya taşımayı atla
+      await tx.asset.update({
+        where: { id: asset.id },
+        data: { currentWarehouseId: toWarehouseId },
+      });
+      await tx.assetMovement.create({
+        data: {
+          assetId: asset.id,
+          type: "TRANSFER",
+          fromWarehouseId: asset.currentWarehouseId,
+          toWarehouseId,
+          performedByUserId: session.user.id,
+          note,
+        },
+      });
+    }
+  });
+}
+
+// Zimmet atama / değiştirme: zaten zimmetliyse devir olarak kaydedilir.
+export async function assignAsset(
+  session: Session,
+  assetId: string,
+  toAssigneeId: string,
+  note?: string
+) {
+  return prisma.$transaction(async (tx) => {
+    const asset = await tx.asset.findUniqueOrThrow({ where: { id: assetId } });
+    const assignee = await tx.personnel.findUnique({ where: { id: toAssigneeId } });
+    if (!assignee) throw new Error("Personel bulunamadı");
+    if (asset.currentAssigneeId === toAssigneeId) {
+      throw new Error("Demirbaş zaten bu kişiye zimmetli");
+    }
+
+    await tx.asset.update({
+      where: { id: assetId },
+      data: { currentAssigneeId: toAssigneeId },
+    });
+    await tx.assetMovement.create({
+      data: {
+        assetId,
+        type: "ZIMMET",
+        fromAssigneeId: asset.currentAssigneeId,
+        toAssigneeId,
+        performedByUserId: session.user.id,
+        note,
+      },
+    });
+  });
+}
+
+// Zimmetten iade (teslim alma): zimmeti boşaltır, istenirse aynı anda bir depoya alır.
+export async function returnAsset(
+  session: Session,
+  assetId: string,
+  toWarehouseId?: string,
+  note?: string
+) {
+  return prisma.$transaction(async (tx) => {
+    const asset = await tx.asset.findUniqueOrThrow({ where: { id: assetId } });
+    if (!asset.currentAssigneeId) throw new Error("Demirbaş zaten zimmetsiz");
+
+    const warehouseChanges = toWarehouseId && toWarehouseId !== asset.currentWarehouseId;
+
+    await tx.asset.update({
+      where: { id: assetId },
+      data: {
+        currentAssigneeId: null,
+        ...(warehouseChanges ? { currentWarehouseId: toWarehouseId } : {}),
+      },
+    });
+    await tx.assetMovement.create({
+      data: {
+        assetId,
+        type: "IADE",
+        fromAssigneeId: asset.currentAssigneeId,
+        ...(warehouseChanges
+          ? { fromWarehouseId: asset.currentWarehouseId, toWarehouseId }
+          : {}),
+        performedByUserId: session.user.id,
+        note,
+      },
+    });
+  });
+}
+
+// Durum değiştirme (aktif/tamirde/hurda/kayıp) — not zorunlu.
+export async function changeAssetStatus(
+  session: Session,
+  assetId: string,
+  newStatus: "aktif" | "tamirde" | "hurda" | "kayip",
+  note: string
+) {
+  return prisma.$transaction(async (tx) => {
+    const asset = await tx.asset.findUniqueOrThrow({ where: { id: assetId } });
+    if (asset.status === newStatus) throw new Error("Demirbaş zaten bu durumda");
+
+    await tx.asset.update({ where: { id: assetId }, data: { status: newStatus } });
+    await tx.assetMovement.create({
+      data: {
+        assetId,
+        type: "DURUM",
+        oldStatus: asset.status,
+        newStatus,
+        performedByUserId: session.user.id,
+        note,
+      },
+    });
+  });
+}
+
 export type InventoryDashboardStats = {
   total: number;
   assigned: number;

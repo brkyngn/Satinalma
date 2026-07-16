@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requirePageRole, hasRole } from "@/lib/rbac";
 import {
   INVENTORY_VIEW_ROLES,
@@ -6,11 +7,12 @@ import {
   ASSET_STATUS_LABELS,
   ASSET_STATUS_OPTIONS,
 } from "@/lib/constants";
-import { listAssets } from "@/lib/services/assets";
+import { listAssets, transferAssets } from "@/lib/services/assets";
 import { listActiveWarehouses } from "@/lib/services/warehouses";
 import { listActiveAssetGroups } from "@/lib/services/assetGroups";
 import { listActivePersonnel } from "@/lib/services/personnel";
 import { AssetStatusBadge } from "@/components/AssetStatusBadge";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function DemirbasListePage({
   searchParams,
@@ -22,6 +24,7 @@ export default async function DemirbasListePage({
     assigned?: string;
     assigneeId?: string;
     search?: string;
+    error?: string;
   }>;
 }) {
   const session = await requirePageRole(INVENTORY_VIEW_ROLES);
@@ -36,8 +39,85 @@ export default async function DemirbasListePage({
   ]);
 
   const exportQuery = new URLSearchParams(
-    Object.entries(filters).filter(([, v]) => v) as [string, string][]
+    Object.entries(filters).filter(([k, v]) => v && k !== "error") as [string, string][]
   ).toString();
+
+  async function bulkTransfer(formData: FormData) {
+    "use server";
+    const s = await requirePageRole(INVENTORY_MANAGE_ROLES);
+    const assetIds = formData.getAll("assetIds").map(String).filter(Boolean);
+    const toWarehouseId = String(formData.get("toWarehouseId") || "");
+    const note = String(formData.get("note") || "") || undefined;
+
+    if (assetIds.length === 0) {
+      redirect(`/demirbas?error=${encodeURIComponent("En az bir demirbaş seçin")}`);
+    }
+    if (!toWarehouseId) {
+      redirect(`/demirbas?error=${encodeURIComponent("Hedef depo seçin")}`);
+    }
+    try {
+      await transferAssets(s, assetIds, toWarehouseId, note);
+    } catch (e) {
+      redirect(`/demirbas?error=${encodeURIComponent(e instanceof Error ? e.message : "Transfer başarısız")}`);
+    }
+    redirect("/demirbas");
+  }
+
+  const colCount = isManager ? 8 : 7;
+
+  const table = (
+    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+      <table className="w-full text-left text-sm">
+        <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
+          <tr>
+            {isManager && <th className="w-8 px-4 py-2" />}
+            <th className="px-4 py-2 font-medium">Etiket No</th>
+            <th className="px-4 py-2 font-medium">Tanım</th>
+            <th className="px-4 py-2 font-medium">Marka / Model</th>
+            <th className="px-4 py-2 font-medium">Grup</th>
+            <th className="px-4 py-2 font-medium">Konum</th>
+            <th className="px-4 py-2 font-medium">Zimmetli Kişi</th>
+            <th className="px-4 py-2 font-medium">Durum</th>
+          </tr>
+        </thead>
+        <tbody>
+          {assets.map((asset) => (
+            <tr key={asset.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
+              {isManager && (
+                <td className="px-4 py-2">
+                  <input type="checkbox" name="assetIds" value={asset.id} className="rounded border-zinc-300" />
+                </td>
+              )}
+              <td className="px-4 py-2">
+                <Link href={`/demirbas/${asset.id}`} className="font-medium text-zinc-900 hover:underline">
+                  {asset.assetTag}
+                </Link>
+              </td>
+              <td className="px-4 py-2 text-zinc-700">{asset.name}</td>
+              <td className="px-4 py-2 text-zinc-600">
+                {[asset.brand, asset.model].filter(Boolean).join(" ")}
+              </td>
+              <td className="px-4 py-2 text-zinc-600">{asset.group.name}</td>
+              <td className="px-4 py-2 text-zinc-600">{asset.currentWarehouse.name}</td>
+              <td className="px-4 py-2 text-zinc-600">
+                {asset.currentAssignee?.fullName ?? <span className="text-zinc-400">Zimmetsiz</span>}
+              </td>
+              <td className="px-4 py-2">
+                <AssetStatusBadge status={asset.status} />
+              </td>
+            </tr>
+          ))}
+          {assets.length === 0 && (
+            <tr>
+              <td colSpan={colCount} className="px-4 py-6 text-center text-zinc-400">
+                Kayıt bulunamadı.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div>
@@ -105,53 +185,28 @@ export default async function DemirbasListePage({
         </button>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">Etiket No</th>
-              <th className="px-4 py-2 font-medium">Tanım</th>
-              <th className="px-4 py-2 font-medium">Marka / Model</th>
-              <th className="px-4 py-2 font-medium">Grup</th>
-              <th className="px-4 py-2 font-medium">Konum</th>
-              <th className="px-4 py-2 font-medium">Zimmetli Kişi</th>
-              <th className="px-4 py-2 font-medium">Durum</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assets.map((asset) => (
-              <tr key={asset.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
-                <td className="px-4 py-2">
-                  <Link href={`/demirbas/${asset.id}`} className="font-medium text-zinc-900 hover:underline">
-                    {asset.assetTag}
-                  </Link>
-                </td>
-                <td className="px-4 py-2 text-zinc-700">{asset.name}</td>
-                <td className="px-4 py-2 text-zinc-600">
-                  {[asset.brand, asset.model].filter(Boolean).join(" ")}
-                </td>
-                <td className="px-4 py-2 text-zinc-600">{asset.group.name}</td>
-                <td className="px-4 py-2 text-zinc-600">{asset.currentWarehouse.name}</td>
-                <td className="px-4 py-2 text-zinc-600">
-                  {asset.currentAssignee?.fullName ?? (
-                    <span className="text-zinc-400">Zimmetsiz</span>
-                  )}
-                </td>
-                <td className="px-4 py-2">
-                  <AssetStatusBadge status={asset.status} />
-                </td>
-              </tr>
-            ))}
-            {assets.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
-                  Kayıt bulunamadı.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {filters.error && <p className="mb-4 text-sm text-brand-red">{filters.error}</p>}
+
+      {isManager ? (
+        <form action={bulkTransfer} className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 text-sm">
+            <span className="text-zinc-500">Seçilenleri toplu transfer:</span>
+            <select name="toWarehouseId" defaultValue="" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm">
+              <option value="">Hedef depo</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+            <input name="note" placeholder="Not (opsiyonel)" className="flex-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm" />
+            <SubmitButton pendingText="Aktarılıyor..." className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-navy-dark">
+              Seçilenleri Transfer Et
+            </SubmitButton>
+          </div>
+          {table}
+        </form>
+      ) : (
+        table
+      )}
     </div>
   );
 }

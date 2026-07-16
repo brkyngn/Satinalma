@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requirePageRole, hasRole } from "@/lib/rbac";
 import {
   INVENTORY_VIEW_ROLES,
@@ -8,8 +8,18 @@ import {
   MOVEMENT_TYPE_LABELS,
   ASSET_STATUS_LABELS,
 } from "@/lib/constants";
-import { getAssetDetail } from "@/lib/services/assets";
+import {
+  getAssetDetail,
+  transferAssets,
+  assignAsset,
+  returnAsset,
+  changeAssetStatus,
+  archiveAsset,
+} from "@/lib/services/assets";
+import { listActiveWarehouses } from "@/lib/services/warehouses";
+import { listActivePersonnel } from "@/lib/services/personnel";
 import { AssetStatusBadge } from "@/components/AssetStatusBadge";
+import { AssetActions } from "@/components/AssetActions";
 import { formatDate } from "@/lib/utils";
 
 type Movement = NonNullable<Awaited<ReturnType<typeof getAssetDetail>>>["movements"][number];
@@ -37,14 +47,79 @@ function describeMovement(movement: Movement): string {
 
 export default async function DemirbasDetayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const session = await requirePageRole(INVENTORY_VIEW_ROLES);
   const isManager = hasRole(session.user.roles, INVENTORY_MANAGE_ROLES);
+  const isAdmin = session.user.roles.includes("admin");
   const { id } = await params;
+  const { error } = await searchParams;
   const asset = await getAssetDetail(id);
   if (!asset) notFound();
+
+  const [warehouses, personnel] = isManager
+    ? await Promise.all([listActiveWarehouses(), listActivePersonnel()])
+    : [[], []];
+
+  async function transferAction(formData: FormData) {
+    "use server";
+    const s = await requirePageRole(INVENTORY_MANAGE_ROLES);
+    try {
+      await transferAssets(s, [id], String(formData.get("toWarehouseId")), String(formData.get("note") || "") || undefined);
+    } catch (e) {
+      redirect(`/demirbas/${id}?error=${encodeURIComponent(e instanceof Error ? e.message : "İşlem başarısız")}`);
+    }
+    redirect(`/demirbas/${id}`);
+  }
+
+  async function assignAction(formData: FormData) {
+    "use server";
+    const s = await requirePageRole(INVENTORY_MANAGE_ROLES);
+    try {
+      await assignAsset(s, id, String(formData.get("toAssigneeId")), String(formData.get("note") || "") || undefined);
+    } catch (e) {
+      redirect(`/demirbas/${id}?error=${encodeURIComponent(e instanceof Error ? e.message : "İşlem başarısız")}`);
+    }
+    redirect(`/demirbas/${id}`);
+  }
+
+  async function returnAction(formData: FormData) {
+    "use server";
+    const s = await requirePageRole(INVENTORY_MANAGE_ROLES);
+    const toWarehouseId = String(formData.get("toWarehouseId") || "") || undefined;
+    try {
+      await returnAsset(s, id, toWarehouseId, String(formData.get("note") || "") || undefined);
+    } catch (e) {
+      redirect(`/demirbas/${id}?error=${encodeURIComponent(e instanceof Error ? e.message : "İşlem başarısız")}`);
+    }
+    redirect(`/demirbas/${id}`);
+  }
+
+  async function statusAction(formData: FormData) {
+    "use server";
+    const s = await requirePageRole(INVENTORY_MANAGE_ROLES);
+    try {
+      await changeAssetStatus(s, id, formData.get("newStatus") as never, String(formData.get("note") || ""));
+    } catch (e) {
+      redirect(`/demirbas/${id}?error=${encodeURIComponent(e instanceof Error ? e.message : "İşlem başarısız")}`);
+    }
+    redirect(`/demirbas/${id}`);
+  }
+
+  async function archiveAction(formData: FormData) {
+    "use server";
+    const s = await requirePageRole(["admin"]);
+    const archived = formData.get("archived") === "true";
+    try {
+      await archiveAsset(s, id, archived);
+    } catch (e) {
+      redirect(`/demirbas/${id}?error=${encodeURIComponent(e instanceof Error ? e.message : "İşlem başarısız")}`);
+    }
+    redirect(`/demirbas/${id}`);
+  }
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -104,6 +179,23 @@ export default async function DemirbasDetayPage({
         </dl>
         {asset.notes && <p className="mt-3 text-sm text-zinc-600">{asset.notes}</p>}
       </div>
+
+      {error && <p className="text-sm text-brand-red">{error}</p>}
+
+      {isManager && (
+        <AssetActions
+          isAssigned={!!asset.currentAssigneeId}
+          isAdmin={isAdmin}
+          archived={asset.archived}
+          warehouses={warehouses.map((w) => ({ id: w.id, name: w.name }))}
+          personnel={personnel.map((p) => ({ id: p.id, name: p.fullName }))}
+          transferAction={transferAction}
+          assignAction={assignAction}
+          returnAction={returnAction}
+          statusAction={statusAction}
+          archiveAction={archiveAction}
+        />
+      )}
 
       <section>
         <h3 className="mb-2 text-sm font-semibold text-zinc-900">Hareket Geçmişi</h3>
