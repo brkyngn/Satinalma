@@ -15,6 +15,8 @@ const ROLE_NAMES = [
   "purchasing",
   "approver",
   "site_manager",
+  "inventory_manager",
+  "inventory_viewer",
 ] as const;
 
 async function main() {
@@ -62,6 +64,41 @@ async function main() {
     update: {},
   });
 
+  // --- Demirbaş modülü: örnek depolar, gruplar ve personel ---
+  const warehouses: Array<{ name: string; type: "merkez" | "santiye" | "diger" }> = [
+    { name: "Merkez Depo", type: "merkez" },
+    { name: "Şuşa Şantiyesi", type: "santiye" },
+  ];
+  for (const warehouse of warehouses) {
+    const existing = await prisma.warehouse.findFirst({ where: { name: warehouse.name } });
+    if (!existing) {
+      await prisma.warehouse.create({ data: { ...warehouse, active: true } });
+    }
+  }
+
+  const groupNames = [
+    "Araç",
+    "El Aletleri",
+    "İş Güvenlik Malzemeleri",
+    "Makine",
+    "Ofis Ekipmanı",
+  ];
+  for (const name of groupNames) {
+    await prisma.assetGroup.upsert({ where: { name }, create: { name }, update: {} });
+  }
+
+  const personnel = [
+    { fullName: "Ahmet Yıldız", title: "Şantiye Şefi", department: "Saha" },
+    { fullName: "Mehmet Kaya", title: "Formen", department: "Saha" },
+    { fullName: "Ayşe Demir", title: "Depo Sorumlusu", department: "Lojistik" },
+  ];
+  for (const person of personnel) {
+    const existing = await prisma.personnel.findFirst({ where: { fullName: person.fullName } });
+    if (!existing) {
+      await prisma.personnel.create({ data: { ...person, active: true } });
+    }
+  }
+
   console.log("Seed tamamlandı.");
   console.log(`Admin giriş bilgileri -> e-posta: ${admin.email} / şifre: ${adminPassword}`);
 
@@ -74,6 +111,7 @@ async function main() {
       { email: "satinalma@santiye.local", name: "Satın Alma Demo", role: "purchasing" },
       { email: "onay@santiye.local", name: "Onaylayıcı Demo", role: "approver" },
       { email: "santiye@santiye.local", name: "Şantiye Sorumlusu Demo", role: "site_manager" },
+      { email: "demirbas@santiye.local", name: "Demirbaş Sorumlusu Demo", role: "inventory_manager" },
     ];
 
     for (const demoUser of demoUsers) {

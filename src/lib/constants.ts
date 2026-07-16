@@ -34,8 +34,44 @@ export const ROLE_LABELS: Record<RoleName, string> = {
   purchasing: "Satın Alma Sorumlusu",
   approver: "Onaylayıcı",
   site_manager: "Şantiye Sorumlusu",
+  inventory_manager: "Demirbaş Sorumlusu",
+  inventory_viewer: "Demirbaş İzleyici",
 };
 
 export const CURRENCY_OPTIONS = ["AZN", "TRY", "USD", "EUR"] as const;
 
 export const DEFAULT_CURRENCY = "AZN";
+
+// --- Demirbaş ve Zimmet modülü ---
+
+export const WAREHOUSE_TYPE_LABELS: Record<string, string> = {
+  merkez: "Merkez Depo",
+  santiye: "Şantiye",
+  diger: "Diğer",
+};
+
+export const WAREHOUSE_TYPE_OPTIONS = ["merkez", "santiye", "diger"] as const;
+
+export const ASSET_STATUS_LABELS: Record<string, string> = {
+  aktif: "Aktif",
+  tamirde: "Tamirde",
+  hurda: "Hurda",
+  kayip: "Kayıp",
+};
+
+export const ASSET_STATUS_OPTIONS = ["aktif", "tamirde", "hurda", "kayip"] as const;
+
+export const ASSET_STATUS_BADGE_STYLES: Record<string, string> = {
+  aktif: "bg-emerald-100 text-emerald-700",
+  tamirde: "bg-amber-100 text-amber-700",
+  hurda: "bg-zinc-200 text-zinc-700",
+  kayip: "bg-red-100 text-red-700",
+};
+
+export const MOVEMENT_TYPE_LABELS: Record<string, string> = {
+  KAYIT: "Kayıt",
+  TRANSFER: "Transfer",
+  ZIMMET: "Zimmet",
+  IADE: "İade",
+  DURUM: "Durum Değişikliği",
+};

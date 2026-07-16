@@ -17,6 +17,8 @@ enum RoleName {
   purchasing
   approver
   site_manager
+  inventory_manager
+  inventory_viewer
 }
 
 model Role {
@@ -38,12 +40,16 @@ model User {
 
   roles UserRole[]
 
-  requestsMade        PurchaseRequest[]     @relation("RequestRequester")
-  quotesEntered       Quote[]               @relation("QuoteEnteredBy")
-  approvalsGiven      Approval[]            @relation("ApprovalApprover")
-  deliveriesShipped   Delivery[]            @relation("DeliveryShippedBy")
-  deliveryAcceptances DeliveryAcceptance[]  @relation("AcceptanceAcceptedBy")
+  requestsMade        PurchaseRequest[]    @relation("RequestRequester")
+  quotesEntered       Quote[]              @relation("QuoteEnteredBy")
+  approvalsGiven      Approval[]           @relation("ApprovalApprover")
+  deliveriesShipped   Delivery[]           @relation("DeliveryShippedBy")
+  deliveryAcceptances DeliveryAcceptance[] @relation("AcceptanceAcceptedBy")
   auditLogs           AuditLog[]
+
+  // Demirbaş modülü
+  linkedPersonnel    Personnel[]     @relation("PersonnelLinkedUser")
+  assetMovementsMade AssetMovement[] @relation("AssetMovementPerformedBy")
 
   @@map("users")
 }
@@ -169,11 +175,11 @@ model Quote {
   enteredByUserId String
   createdAt       DateTime       @default(now())
 
-  request    PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  enteredBy  User            @relation("QuoteEnteredBy", fields: [enteredByUserId], references: [id])
+  request     PurchaseRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  enteredBy   User              @relation("QuoteEnteredBy", fields: [enteredByUserId], references: [id])
   attachments QuoteAttachment[]
   items       QuoteItem[]
-  approvals   Approval[]      @relation("ApprovalSelectedQuote")
+  approvals   Approval[]        @relation("ApprovalSelectedQuote")
   deliveries  Delivery[]
 
   @@index([requestId])
@@ -320,4 +326,147 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Demirbaş ve Zimmet Takip Modülü
+//
+// Satın alma tablolarından tamamen bağımsızdır; hiçbir satın alma tablosuyla
+// ilişki kurmaz. Yalnızca ortak kullanıcı/oturum (User) paylaşılır.
+// ---------------------------------------------------------------------------
+
+enum WarehouseType {
+  merkez
+  santiye
+  diger
+}
+
+enum AssetStatus {
+  aktif
+  tamirde
+  hurda
+  kayip
+}
+
+enum MovementType {
+  KAYIT // ilk oluşturma / Excel ile giriş
+  TRANSFER // depo/konum değişimi
+  ZIMMET // zimmet atama veya devretme
+  IADE // zimmetten teslim alma
+  DURUM // durum değişikliği
+}
+
+// Depo / Konum — yalnızca admin panelinden (Tanımlar) tanımlanır.
+model Warehouse {
+  id        String        @id @default(cuid())
+  name      String
+  type      WarehouseType @default(merkez)
+  address   String?
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+
+  assets        Asset[]
+  movementsFrom AssetMovement[] @relation("MovementFromWarehouse")
+  movementsTo   AssetMovement[] @relation("MovementToWarehouse")
+
+  @@map("warehouses")
+}
+
+// Zimmet yapılan personel. Sisteme giriş yapan bir kullanıcı olmak zorunda
+// DEĞİLDİR; istenirse opsiyonel olarak bir User'a bağlanabilir (linkedUserId).
+model Personnel {
+  id           String   @id @default(cuid())
+  fullName     String
+  title        String?
+  department   String?
+  phone        String?
+  active       Boolean  @default(true)
+  linkedUserId String?
+  createdAt    DateTime @default(now())
+
+  linkedUser     User?           @relation("PersonnelLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  assignedAssets Asset[]
+  movementsFrom  AssetMovement[] @relation("MovementFromAssignee")
+  movementsTo    AssetMovement[] @relation("MovementToAssignee")
+
+  @@index([linkedUserId])
+  @@map("personnel")
+}
+
+// Demirbaş grubu — yalnızca admin panelinden tanımlanır. İsim benzersizdir;
+// Excel içe aktarmada otomatik grup OLUŞTURULMAZ, bu listeyle eşleştirilir.
+model AssetGroup {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  assets Asset[]
+
+  @@map("asset_groups")
+}
+
+// Tekil demirbaş: 1 fiziksel varlık = 1 kayıt (miktar bazlı takip yok).
+// Konum (currentWarehouseId) ve zimmet (currentAssigneeId) bağımsız alanlardır.
+// Kalıcı silme yerine arşivleme kullanılır (archived=true) — hareket geçmişi
+// korunur; arşivlenen kayıtlar varsayılan listelerde gizlenir.
+model Asset {
+  id                 String      @id @default(cuid())
+  assetTag           String      @unique
+  name               String
+  brand              String?
+  model              String?
+  serialNumber       String?
+  groupId            String
+  currentWarehouseId String
+  currentAssigneeId  String?
+  status             AssetStatus @default(aktif)
+  purchaseDate       DateTime?
+  notes              String?
+  archived           Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  // Tanımların üzerinde demirbaş varken silinememesi için Restrict (pasife alınır).
+  group            AssetGroup @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  currentWarehouse Warehouse  @relation(fields: [currentWarehouseId], references: [id], onDelete: Restrict)
+  currentAssignee  Personnel? @relation(fields: [currentAssigneeId], references: [id], onDelete: Restrict)
+
+  movements AssetMovement[]
+
+  @@index([groupId])
+  @@index([currentWarehouseId])
+  @@index([currentAssigneeId])
+  @@index([status])
+  @@index([archived])
+  @@map("assets")
+}
+
+// Hareket geçmişi — append-only. Kayıtlar asla değiştirilmez/silinmez; denetim
+// ve anlaşmazlık için kritiktir. Depo/personel FK'leri SetNull (bir tanım ileride
+// kaldırılsa bile geçmiş satırı bozulmaz); işlemi yapan kullanıcı Restrict.
+model AssetMovement {
+  id                String       @id @default(cuid())
+  assetId           String
+  type              MovementType
+  fromWarehouseId   String?
+  toWarehouseId     String?
+  fromAssigneeId    String?
+  toAssigneeId      String?
+  oldStatus         AssetStatus?
+  newStatus         AssetStatus?
+  performedByUserId String
+  note              String?
+  createdAt         DateTime     @default(now())
+
+  asset         Asset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  fromWarehouse Warehouse? @relation("MovementFromWarehouse", fields: [fromWarehouseId], references: [id], onDelete: SetNull)
+  toWarehouse   Warehouse? @relation("MovementToWarehouse", fields: [toWarehouseId], references: [id], onDelete: SetNull)
+  fromAssignee  Personnel? @relation("MovementFromAssignee", fields: [fromAssigneeId], references: [id], onDelete: SetNull)
+  toAssignee    Personnel? @relation("MovementToAssignee", fields: [toAssigneeId], references: [id], onDelete: SetNull)
+  performedBy   User       @relation("AssetMovementPerformedBy", fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([assetId])
+  @@index([createdAt])
+  @@map("asset_movements")
 }
