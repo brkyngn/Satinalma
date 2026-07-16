@@ -53,6 +53,49 @@ npm run dev
 
 Her durum değişikliği `AuditLog` tablosuna kaydedilir.
 
+## Demirbaş ve Zimmet Modülü
+
+Satın alma sürecinden **bağımsız** bir demirbaş/zimmet takip modülü (`/demirbas`).
+Kendi tabloları vardır (Warehouse, Personnel, AssetGroup, Asset, AssetMovement);
+yalnızca oturum/kullanıcı ortaktır.
+
+**Roller:** `inventory_manager` (Demirbaş Sorumlusu — tüm işlemler),
+`inventory_viewer` (yalnızca görüntüleme). `admin` her şeyi yapar ve demirbaşı
+arşivleyebilir.
+
+**Takip mantığı:** Her fiziksel demirbaş tekil bir kayıttır (miktar bazlı değil).
+Konum (depo) ve zimmet (personel) bağımsız alanlardır. Durumlar: aktif / tamirde
+/ hurda / kayıp. Her işlem (kayıt, transfer, zimmet, iade, durum değişikliği)
+`AssetMovement` tablosuna **değiştirilemez** bir hareket kaydı düşer.
+
+**Sayfalar:** Liste (filtre/arama + Excel dışa aktarma + toplu transfer), Özet
+(dashboard), Detay (bilgi + hareket geçmişi + işlem butonları), Yeni/Düzenle,
+Excel İçe Aktarma, Tanımlar (Depo/Grup/Personel — Excel yüklemeden **önce**
+tanımlanmalıdır).
+
+**Kurulum sırası:** Önce Tanımlar bölümünden depo, grup ve (gerekirse) personel
+tanımlayın → sonra demirbaş ekleyin veya Excel ile toplu içe aktarın.
+
+### Excel İçe Aktarma Formatı
+
+İlk satır başlık olacak şekilde `.xlsx`. Sütun adları esnek eşleştirilir
+(büyük/küçük harf, boşluk ve Türkçe karakter toleranslı):
+
+| Sütun | Zorunlu | Açıklama |
+|---|---|---|
+| Demirbaş No / Etiket | Hayır | Boşsa otomatik üretilir (`DMB-0001`) |
+| Tanım / Ad | **Evet** | Demirbaşın adı |
+| Marka | Hayır | |
+| Model | Hayır | |
+| Seri No | Hayır | Üretici seri numarası |
+| Grup Adı | **Evet** | Tanımlı bir grupla eşleşmeli (yoksa satır hatalı) |
+| Depo / Konum | **Evet** | Tanımlı bir depoyla eşleşmeli (yoksa satır hatalı) |
+| Zimmetli Kişi | Hayır | Personel listesinde aranır; yoksa onayla oluşturulabilir |
+
+Akış: dosya yükle → **önizleme** (geçerli/uyarı/hatalı satırlar renkli, tanımsız
+grup/depo listelenir) → onayla → kaydet. Hatalı satırlar atlanır, geçerliler
+aktarılır; her aktarılan demirbaş için `KAYIT` hareketi oluşturulur.
+
 ## Railway Deploy (önerilen)
 
 Uygulama ve PostgreSQL'i aynı Railway projesinde barındırmak, veritabanı
