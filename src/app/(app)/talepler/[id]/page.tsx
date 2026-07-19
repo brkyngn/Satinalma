@@ -7,21 +7,27 @@ import {
   submitRequestForApproval,
   deletePurchaseRequest,
 } from "@/lib/services/requests";
+import { getRequestThread, addRequestMessage } from "@/lib/services/messages";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 import { ROLE_LABELS } from "@/lib/constants";
 import { DeleteButton } from "@/components/DeleteButton";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function TalepDetayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ msgError?: string }>;
 }) {
   const session = await requireSession();
   const { id } = await params;
+  const { msgError } = await searchParams;
   const request = await getPurchaseRequestDetail(session, id);
   if (!request) notFound();
+
+  const thread = await getRequestThread(id);
 
   const roles = request ? session.user.roles : [];
   const isPurchasing = roles.includes("purchasing");
@@ -40,6 +46,17 @@ export default async function TalepDetayPage({
     const session = await requirePageRole(["admin"]);
     await deletePurchaseRequest(session, id);
     redirect("/talepler");
+  }
+
+  async function mesajGonder(formData: FormData) {
+    "use server";
+    const session = await requireSession();
+    try {
+      await addRequestMessage(session, id, String(formData.get("body") || ""));
+    } catch (e) {
+      redirect(`/talepler/${id}?msgError=${encodeURIComponent(e instanceof Error ? e.message : "Mesaj gönderilemedi")}#mesajlar`);
+    }
+    redirect(`/talepler/${id}#mesajlar`);
   }
 
   return (
@@ -314,6 +331,57 @@ export default async function TalepDetayPage({
           </div>
         </section>
       )}
+
+      <section id="mesajlar">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-900">Mesajlar ve Notlar</h2>
+        <div className="rounded-lg border border-zinc-200 bg-white">
+          <div className="max-h-96 space-y-3 overflow-y-auto p-4">
+            {thread.length === 0 && (
+              <p className="text-sm text-zinc-400">Henüz mesaj yok. İlk mesajı siz yazın.</p>
+            )}
+            {thread.map((item) =>
+              item.kind === "system" ? (
+                <div key={item.id} className="flex items-center gap-2 text-xs text-zinc-500">
+                  <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-600">
+                    Sistem
+                  </span>
+                  <span>
+                    {item.body}
+                    {item.author !== "Sistem" && ` · ${item.author}`} · {formatDateTime(item.createdAt)}
+                  </span>
+                </div>
+              ) : (
+                <div key={item.id} className="rounded-md bg-zinc-50 p-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-sm font-medium text-zinc-800">{item.author}</span>
+                    <span className="text-xs text-zinc-400">{formatDateTime(item.createdAt)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm text-zinc-700">{item.body}</p>
+                </div>
+              )
+            )}
+          </div>
+
+          <form action={mesajGonder} className="border-t border-zinc-100 p-3">
+            <textarea
+              name="body"
+              rows={2}
+              required
+              placeholder="Soru sorun veya not ekleyin..."
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            />
+            {msgError && <p className="mt-1 text-sm text-brand-red">{msgError}</p>}
+            <div className="mt-2 flex justify-end">
+              <SubmitButton
+                pendingText="Gönderiliyor..."
+                className="rounded-md bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:bg-brand-navy-dark"
+              >
+                Gönder
+              </SubmitButton>
+            </div>
+          </form>
+        </div>
+      </section>
 
       <p className="text-xs text-zinc-400">
         Rolünüz: {roles.map((role) => ROLE_LABELS[role] ?? role).join(", ")}
