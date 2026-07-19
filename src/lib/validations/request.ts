@@ -16,3 +16,10 @@ export const createRequestSchema = z.object({
 });
 
 export type CreateRequestInput = z.infer<typeof createRequestSchema>;
+
+export const referenceLinkSchema = z.object({
+  url: z.string().trim().url("Geçerli bir bağlantı girin"),
+  label: z.string().trim().optional(),
+});
+
+export type ReferenceLinkInput = z.infer<typeof referenceLinkSchema>;

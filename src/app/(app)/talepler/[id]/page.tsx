@@ -171,6 +171,57 @@ export default async function TalepDetayPage({
         </div>
       </section>
 
+      {request.references.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-zinc-900">Referanslar</h2>
+          <div className="flex flex-wrap gap-3">
+            {request.references.map((reference) => {
+              if (reference.kind === "link") {
+                return (
+                  <a
+                    key={reference.id}
+                    href={reference.url ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-brand-navy hover:border-zinc-300 hover:underline"
+                  >
+                    🔗 {reference.label || reference.url}
+                  </a>
+                );
+              }
+              const href = `/api/requests/${request.id}/references/${reference.id}`;
+              const isImage = reference.mimeType?.startsWith("image/");
+              return (
+                <a
+                  key={reference.id}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex flex-col items-center gap-1 rounded-md border border-zinc-200 bg-white p-2 text-xs text-zinc-600 hover:border-zinc-300"
+                  title={reference.label ?? reference.fileName ?? undefined}
+                >
+                  {isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={href}
+                      alt={reference.label ?? reference.fileName ?? "referans"}
+                      className="h-24 w-24 rounded object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-24 w-24 items-center justify-center rounded bg-zinc-50 text-3xl">
+                      📄
+                    </span>
+                  )}
+                  <span className="max-w-24 truncate">
+                    {reference.label || reference.fileName}
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="mb-2 text-sm font-semibold text-zinc-900">Teklifler</h2>
         {request.quotes.length === 0 ? (

@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { requirePageRole } from "@/lib/rbac";
-import { createRequestSchema } from "@/lib/validations/request";
-import { createPurchaseRequest } from "@/lib/services/requests";
+import { createRequestSchema, referenceLinkSchema } from "@/lib/validations/request";
+import { createPurchaseRequest, type CreateReferences } from "@/lib/services/requests";
+import { validateFile, type UploadedFile } from "@/lib/services/quotes";
 import { listProjects } from "@/lib/services/projects";
 import { RequestItemsFields } from "@/components/RequestItemsFields";
+import { RequestReferences } from "@/components/RequestReferences";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function YeniTalepPage({
@@ -43,7 +45,43 @@ export default async function YeniTalepPage({
       redirect(`/talepler/yeni?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
     }
 
-    const request = await createPurchaseRequest(session, parsed.data);
+    // Referans bağlantıları (refLink alanları JSON olarak taşınır)
+    const links: { url: string; label?: string }[] = [];
+    for (const entry of formData.getAll("refLink")) {
+      try {
+        const linkParsed = referenceLinkSchema.safeParse(JSON.parse(String(entry)));
+        if (linkParsed.success) links.push(linkParsed.data);
+      } catch {
+        // geçersiz JSON'u sessizce atla
+      }
+    }
+
+    // Referans dosyaları (resim/PDF) — refFiles ile aynı sırada refFileLabel
+    const refFileEntries = formData
+      .getAll("refFiles")
+      .filter((e): e is File => e instanceof File && e.size > 0);
+    const refFileLabels = formData.getAll("refFileLabel").map(String);
+    for (const f of refFileEntries) {
+      const fileError = validateFile(f);
+      if (fileError) {
+        redirect(`/talepler/yeni?error=${encodeURIComponent(fileError)}`);
+      }
+    }
+    const files = await Promise.all(
+      refFileEntries.map(async (f, index) => ({
+        file: {
+          buffer: Buffer.from(await f.arrayBuffer()),
+          fileName: f.name,
+          mimeType: f.type,
+          fileSize: f.size,
+        } as UploadedFile,
+        label: refFileLabels[index] || undefined,
+      }))
+    );
+
+    const references: CreateReferences = { links, files };
+
+    const request = await createPurchaseRequest(session, parsed.data, references);
     redirect(`/talepler/${request.id}`);
   }
 
@@ -97,6 +135,14 @@ export default async function YeniTalepPage({
         <div>
           <span className="mb-2 block text-sm font-medium text-zinc-700">Kalemler</span>
           <RequestItemsFields />
+        </div>
+
+        <div>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">
+            Referanslar{" "}
+            <span className="text-zinc-400">(ürün detayı için bağlantı, resim veya PDF)</span>
+          </span>
+          <RequestReferences />
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

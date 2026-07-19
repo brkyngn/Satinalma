@@ -1,8 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import type { CreateRequestInput } from "@/lib/validations/request";
+import type { UploadedFile } from "@/lib/services/quotes";
 import type { Session } from "next-auth";
 import type { Prisma } from "../../../generated/prisma/client";
+
+export type CreateReferences = {
+  links: { url: string; label?: string }[];
+  files: { file: UploadedFile; label?: string }[];
+};
 
 async function generateRequestNumber(tx: Prisma.TransactionClient) {
   const year = new Date().getFullYear();
@@ -22,10 +28,27 @@ async function generateRequestNumber(tx: Prisma.TransactionClient) {
 
 export async function createPurchaseRequest(
   session: Session,
-  input: CreateRequestInput
+  input: CreateRequestInput,
+  references: CreateReferences = { links: [], files: [] }
 ) {
   return prisma.$transaction(async (tx) => {
     const requestNumber = await generateRequestNumber(tx);
+
+    const referenceRows: Prisma.RequestReferenceCreateWithoutRequestInput[] = [
+      ...references.links.map((link) => ({
+        kind: "link" as const,
+        url: link.url,
+        label: link.label,
+      })),
+      ...references.files.map(({ file, label }) => ({
+        kind: "file" as const,
+        fileData: file.buffer,
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        fileSize: file.fileSize,
+        label: label ?? file.fileName,
+      })),
+    ];
 
     const request = await tx.purchaseRequest.create({
       data: {
@@ -44,6 +67,7 @@ export async function createPurchaseRequest(
             specNote: item.specNote,
           })),
         },
+        ...(referenceRows.length > 0 ? { references: { create: referenceRows } } : {}),
       },
     });
 
@@ -57,6 +81,10 @@ export async function createPurchaseRequest(
 
     return request;
   });
+}
+
+export function getRequestReference(referenceId: string) {
+  return prisma.requestReference.findUnique({ where: { id: referenceId } });
 }
 
 export type RequestListFilters = {
@@ -110,6 +138,18 @@ export async function getPurchaseRequestDetail(session: Session, id: string) {
       project: true,
       requester: true,
       items: true,
+      references: {
+        select: {
+          id: true,
+          kind: true,
+          url: true,
+          label: true,
+          fileName: true,
+          mimeType: true,
+          fileSize: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
       quotes: {
         include: {
           attachments: true,

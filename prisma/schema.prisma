@@ -123,6 +123,7 @@ model PurchaseRequest {
   approvals  Approval[]
   deliveries Delivery[]
   messages   RequestMessage[]
+  references RequestReference[]
 
   @@index([projectId])
   @@index([requesterId])
@@ -307,6 +308,33 @@ model DeliveryAcceptanceAttachment {
 
   @@index([deliveryAcceptanceId])
   @@map("delivery_acceptance_attachments")
+}
+
+// ---------------------------------------------------------------------------
+// Talep Referansları (ürün detayı için bağlantı / resim / PDF)
+// ---------------------------------------------------------------------------
+
+enum ReferenceKind {
+  link
+  file
+}
+
+model RequestReference {
+  id        String        @id @default(cuid())
+  requestId String
+  kind      ReferenceKind
+  url       String? // kind = link
+  label     String? // her ikisi için opsiyonel açıklama
+  fileData  Bytes? // kind = file (resim/PDF, bytea)
+  fileName  String?
+  mimeType  String?
+  fileSize  Int?
+  createdAt DateTime      @default(now())
+
+  request PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("request_references")
 }
 
 // ---------------------------------------------------------------------------

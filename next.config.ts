@@ -7,7 +7,9 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: "10mb",
+      // Talep oluştururken birden fazla referans (resim/PDF) yüklenebildiğinden
+      // toplam gövde sınırı yükseltildi (her dosya yine 10MB ile sınırlı).
+      bodySizeLimit: "30mb",
     },
   },
 };
